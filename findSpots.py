@@ -5,7 +5,7 @@ import numpy as np
 import numpy.linalg as la
 from matplotlib import pyplot as plt
 from scipy import optimize
-
+import math
 import findLine as fl
 
 
@@ -139,16 +139,79 @@ def contour(f):
         dst = im.copy()
         indices, circles = opt(contours)
         rect = [rect[i] for i in indices]
+        # rect, circles = NMS(rect,circles)
+        indices = NMS(rect,circles)
+        # for r in rect:
+        #     box = cv.boxPoints(r)
+        #     box = np.int0(box)
+        #     cv.drawContours(dst, [box], 0, (0, 0, 255), 2)
 
-        for r in rect:
-            box = cv.boxPoints(r)
-            box = np.int0(box)
-            cv.drawContours(dst, [box], 0, (0, 0, 255), 2)
         # for c in circles:
         #     cx,cy,r = c
         #     cv.circle(dst,center=(int(cx),int(cy)),radius=int(r),color=[0,255,0])
-        plt.imshow(cv.cvtColor(dst, cv.COLOR_BGR2RGB)), plt.title(f'{filename}'), plt.show()
-        cv.imwrite('spots/' + filename, dst)
+        # plt.imshow(cv.cvtColor(dst, cv.COLOR_BGR2RGB)), plt.title(f'{filename}'), plt.show()
+        # cv.imwrite('spots/' + filename, dst)
+
+        dst = im.copy()
+
+        cv.drawContours(dst, [contours[i] for i in indices], -1, (0, 255, 0), 3)
+
+        plt.imshow(cv.cvtColor(dst, cv.COLOR_BGR2RGB)), plt.title(filename), plt.show()
+
+
+
+def NMS(rect, circles):
+    indices = range(len(rect))
+    # similar_rects = []
+    # for i,r1 in enumerate(rect[:-1]):
+    #     if i in similar_rects:
+    #         continue
+    #     for j, r2 in enumerate(rect[i+1:]):
+    #         if j in similar_rects:
+    #             continue
+    #         if similar_rect(r1,r2):
+    #             similar_rects.append(j)
+
+    similar_circles = []
+    for i, c1 in enumerate(circles[:-1]):
+        if i in similar_circles:
+            continue
+        for j, c2 in enumerate(circles[i+1:]):
+            if j in similar_circles:
+                continue
+            if similar_circle(c1,c2):
+                similar_circles.append(j+i+1)
+
+    indices = set(indices) - set(similar_circles)
+    # print(indices)
+
+    # [rect[i] for i in indices], [circles[i] for i in indices]
+    return indices
+
+
+def similar_circle(c1, c2):
+    x1,y1,r1 = c1
+    x2,y2,r2 = c2
+    d_c = np.linalg.norm(np.array([x1,y1])-np.array([x2,y2]))/min(r1,r2)
+    d_r = math.fabs(r1-r2)/min(r1,r2)
+    if d_c<0.3 and d_r<0.3:
+        return True
+
+    return False
+
+
+# def similar_rect(rect1,rect2):
+#     c1, s1, r1 = rect1
+#     c2, s2, r2 = rect2
+#     c1,c2 = np.array(c1),np.array(c2)
+#     d_c = np.linalg.norm(c1-c2)
+#     s1,s2 = np.array(s1),np.array(s2)
+#     d_s = np.abs(s1-s2)
+#     d_area = (d_s[0]*d_s[1])
+#     d_r = math.fabs(r1-r2)
+#     if d_c<0.5*w and d_area<0.5*(w*h) :
+#         return True
+#     return False
 
 
 def thresholding(contours):
@@ -219,7 +282,9 @@ if __name__ == '__main__':
     e_ratio = 0.5
     e_bar = 0.9
     e_bound = 2e-2
+    e_err = 0.5
 
     dirPath = 'dataset_perspective_transformed/'
     f = os.listdir(dirPath)
+    # f = ['002.png']
     contour(f)
