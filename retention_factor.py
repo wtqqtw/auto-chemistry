@@ -2,9 +2,14 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 from scipy.optimize import curve_fit
 import os
-import cv2 as cv
-from matplotlib import pyplot as plt
+import utils
+import warnings
 
+warnings.filterwarnings('ignore')
+
+beta = 2
+std_th = 0.06
+perp_th = 0.04
 
 def total_ls(M: np.ndarray):
     m, _ = M.shape
@@ -63,14 +68,14 @@ def perp(C: np.ndarray, popt: np.ndarray):
 def opt(clusterList: list):
     indices = []
     cl = []
-    if len(clusterList)==1:
+    if len(clusterList) == 1:
         return clusterList
     for i in range(len(clusterList)):
         if i in indices:
             continue
 
         C = clusterList[i]
-        if i == len(clusterList)-1:
+        if i == len(clusterList) - 1:
             cl.append(C)
         else:
             C_r = np.vstack((C, clusterList[i + 1]))
@@ -88,51 +93,30 @@ def rf_calc(C: np.ndarray):
     y = np.abs(y - np.max(y))
     y.sort()
     y = y / np.max(y)
-    return list(y[(0 < y) & (y < 1)])
+
+    return np.round(y[(0 < y) & (y < 1)],decimals=3)
 
 
-def rf(M: np.ndarray, im: np.ndarray, f):
+def rf(M: np.ndarray,width):
+    global w
+    w = width
     rfs = []
     cl = cluster(M)
     cl.sort(key=lambda x: np.mean(x, axis=0)[0])
     cl = opt(cl)
     for c in cl:
         rfs.append(rf_calc(c))
-
-    IMG = []
-    for i, c in enumerate(cl):
-        n = len(cl)
-        img = im.copy()
-        for p in c:
-            cv.drawMarker(img=img, position=(int(p[0]), int(p[1])), color=[0, 0, 255])
-        IMG.append(img)
-        plt.subplot(int('1' + str(n) + str(i + 1))), plt.imshow(cv.cvtColor(img, cv.COLOR_BGR2RGB))
-    plt.title(f)
-    plt.show()
-
-    # cv.imwrite(f'semi/{f}', np.hstack(tuple(IMG)))
     return rfs
 
 
-def read(filename):
-    im = cv.imread(filename)
-    gray = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
-    return im, gray
-
-
 if __name__ == '__main__':
-
-    beta = 2
-    std_th = 0.06
-    perp_th = 0.04
-
     imDir = 'dataset_perspective_transformed/'
     arrDir = 'ground_truth_coordinates/'
     files = os.listdir(imDir)
 
     for f in files:
-        im, _ = read(imDir + f)
+        im, _ = utils.imread(imDir + f)
         h, w, _ = im.shape
         M = np.load(arrDir + f.split('.')[0] + '.npy')
-        rfs = rf(M, im, f)
+        rfs = rf(M, w)
         print(rfs)
