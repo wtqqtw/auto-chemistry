@@ -4,28 +4,7 @@ from matplotlib import pyplot as plt
 import math
 import os
 from sklearn.cluster import DBSCAN
-
-
-def read(filename):
-    im = cv.imread(filename)
-    gray = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
-    return im, gray
-
-
-def denoise(src):
-    clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    cl = clahe.apply(src)
-    kernel = np.ones((7, 7), np.uint8)
-    opening = cv.morphologyEx(cl, op=cv.MORPH_OPEN, kernel=kernel)
-    return opening
-
-
-def binarize(src, blur=3):
-    th = cv.adaptiveThreshold(src, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
-    dst = cv.medianBlur(th, blur)
-    # plt.imshow(cv.bitwise_not(dst), cmap='gray'), plt.title('Threshold'), plt.show()
-    return cv.bitwise_not(dst)
-
+import utils
 
 
 def l_eq(line):
@@ -36,7 +15,7 @@ def l_eq(line):
     m, c = np.linalg.lstsq(A, y_coords, rcond=None)[0]
     x = w / 2
     y = m * x + c
-    return m,c,y
+    return m, c, y
 
 
 def get_points(lines):
@@ -51,10 +30,11 @@ def get_points(lines):
         pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
         pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
         if P is None:
-            P = [(pt1,pt2)]
+            P = [(pt1, pt2)]
         else:
-            P.append((pt1,pt2))
+            P.append((pt1, pt2))
     return P
+
 
 def k_rep(indices, lines):
     """select representative of cluster k"""
@@ -67,6 +47,7 @@ def k_rep(indices, lines):
                     return l
     return None
 
+
 def optimize_line(lines):
     """average some crossed lines and closed lines"""
     smoothed = []
@@ -75,30 +56,32 @@ def optimize_line(lines):
         if i not in smoothed:
             similar = []
             for j, l2 in enumerate(lines):
-                if i==j or (math.fabs(l_eq(l2)[-1]-l_eq(l1)[-1])<0.02*h):
+                if i == j or (math.fabs(l_eq(l2)[-1] - l_eq(l1)[-1]) < 0.02 * h):
                     smoothed.append(j)
                     similar.append(l2)
 
             line_arr = np.array([l for l in similar])
-            vote = line_arr[:,-1]
+            vote = line_arr[:, -1]
             total = np.sum(vote)
-            weightByVote = vote/total
-            weightedMean = list(weightByVote@line_arr)
+            weightByVote = vote / total
+            weightedMean = list(weightByVote @ line_arr)
             optimized.append(weightedMean)
     return optimized
 
+
 def find_objective_lines(lines):
     """find upper and lower bound"""
-    Y = [[l_eq(l)[-1],l] for l in lines]
+    Y = [[l_eq(l)[-1], l] for l in lines]
     Y.sort(key=lambda x: x[0])
-    gaps = [Y[i+1][0]-Y[i][0] for i in range(len(Y)-1)]
+    gaps = [Y[i + 1][0] - Y[i][0] for i in range(len(Y) - 1)]
     maxGap = max(gaps)
     idx = gaps.index(maxGap)
-    return [Y[idx][1],Y[idx+1][1]]
+    return [Y[idx][1], Y[idx + 1][1]]
+
 
 def hough_line(src):
-    binary = binarize(denoise(src))
-    global h,w
+    binary = utils.binarize(utils.denoise(src))
+    global h, w
     h, w = binary.shape
     houghLines = cv.HoughLinesWithAccumulator(binary, 1, np.pi / 180, int(w * 0.4))
     lines = []
@@ -113,7 +96,7 @@ def hough_line(src):
     # rho = math.sqrt(h ** 2 + w ** 2)
     # theta = np.pi
     X = np.array([[l[0], (l[1] / np.pi) * 180] for l in lines])
-    db = DBSCAN(eps=math.sqrt(10**2), min_samples=2).fit(X)
+    db = DBSCAN(eps=math.sqrt(10 ** 2), min_samples=2).fit(X)
     core_indices = set(db.core_sample_indices_)
     labels_ = db.labels_
     K = set(labels_) - {-1}
@@ -125,7 +108,7 @@ def hough_line(src):
             K_reps.append(kRep)
 
     outliers = [lines[i] for i, x in enumerate(labels_) if x == -1]
-    optimized_lines = optimize_line(outliers+K_reps)
+    optimized_lines = optimize_line(outliers + K_reps)
     objective_lines = find_objective_lines(optimized_lines)
     # points = get_points(objective_lines)
     return objective_lines
@@ -137,8 +120,7 @@ if __name__ == '__main__':
     # f = ['dataset_perspective_transformed/002.png']
     for fileName in f:
 
-        im, gray = read(dirPath+fileName)
-
+        im, gray = utils.imread(dirPath + fileName)
 
         objective_lines = hough_line(gray)
         points = get_points(objective_lines)
@@ -147,4 +129,4 @@ if __name__ == '__main__':
         plt.imshow(cv.cvtColor(im, cv.COLOR_BGR2RGB))
         plt.title(f'{fileName},annotate lines')
         plt.show()
-        cv.imwrite('lines/' + fileName, im)
+        # cv.imwrite('lines/' + fileName, im)
