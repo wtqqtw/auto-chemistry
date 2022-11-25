@@ -25,7 +25,7 @@ def find_spots(im: np.ndarray):
     h, w = gray.shape
 
     gray = utils.denoise(gray, denoise_kernel)
-    msk = utils.mask(gray)
+    msk,L = utils.mask(gray)
     contours, hierarchy = cv.findContours(image=utils.binarize(gray), mode=cv.RETR_CCOMP, method=cv.CHAIN_APPROX_SIMPLE)
 
     contours = optimise_contour(contours, msk)
@@ -48,7 +48,7 @@ def find_spots(im: np.ndarray):
     # plt.imshow(cv.cvtColor(dst, cv.COLOR_BGR2RGB)), plt.show()
     # cv.imwrite(f'spots/{f}', dst)
 
-    rfs = rf(P,w)
+    rfs = rf(P,w,line_coefficient=L)
     return P, rfs
 
 

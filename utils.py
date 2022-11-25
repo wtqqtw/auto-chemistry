@@ -4,7 +4,6 @@ from scipy import optimize
 import findLine as fl
 
 
-
 def imread(filename):
     im = cv.imread(filename)
     gray = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
@@ -40,7 +39,8 @@ def mask(gray):
         u, l = y_u[i], y_l[i]
         if u > 0 and l < h:
             col[u:l] = 1
-    return msk
+    line_coefficient = np.array([[um,uc],[lm,lc]])
+    return msk, line_coefficient
 
 
 def centre_cnt(cnt: np.ndarray):
@@ -71,6 +71,3 @@ def fit_circle(cnt: np.ndarray):
     circle = cx, cy, r
 
     return circle
-
-
-
